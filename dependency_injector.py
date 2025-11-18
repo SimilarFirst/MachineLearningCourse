@@ -1,112 +1,91 @@
-"""
-Dependency Injection контейнер для приложения Акира
-"""
 from typing import Optional
-from config import logger
+import logging
 
+logger = logging.getLogger(__name__)
 
 class DependencyContainer:
-    """Контейнер зависимостей (Singleton)"""
-    
-    _instance = None
-    _initialized = False
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-    
+    """Dependency injection container for managing services"""
+
     def __init__(self):
-        if not self._initialized:
-            self._tts_engine = None
-            self._voice_recognizer = None
-            self._weather_service = None
-            self._ai_chat = None
-            self._reminder_manager = None
-            self._character_3d = None
-            DependencyContainer._initialized = True
-    
-    def get_tts_engine(self):
-        """Получение TTS движка"""
-        if self._tts_engine is None:
-            from voices import TTSEngine
-            self._tts_engine = TTSEngine()
-            self._tts_engine.load_model()
-            logger.info("TTS Engine инициализирован")
-        return self._tts_engine
-    
+        self._services = {}
+        self._singletons = {}
+
     def get_voice_recognizer(self):
-        """Получение распознавателя речи"""
-        if self._voice_recognizer is None:
-            from mic import VoiceRecognizer, AudioProcessor, CommandRecognizer
-            audio_processor = AudioProcessor()
-            command_recognizer = CommandRecognizer()
-            self._voice_recognizer = VoiceRecognizer(audio_processor, command_recognizer)
-            self._voice_recognizer.initialize()
-            logger.info("Voice Recognizer инициализирован")
-        return self._voice_recognizer
-    
-    def get_weather_service(self):
-        """Получение сервиса погоды"""
-        if self._weather_service is None:
-            from weather import WeatherService
-            self._weather_service = WeatherService()
-            logger.info("Weather Service инициализирован")
-        return self._weather_service
-    
-    def get_ai_chat(self):
-        """Получение AI чата"""
-        if self._ai_chat is None:
-            from ai_chat import AIChat
-            self._ai_chat = AIChat()
-            logger.info("AI Chat инициализирован")
-        return self._ai_chat
-    
+        """Get voice recognizer instance"""
+        if 'voice_recognizer' not in self._singletons:
+            try:
+                from mic import VoiceRecognizer, AudioProcessor, CommandRecognizer
+                audio_processor = AudioProcessor()
+                command_recognizer = CommandRecognizer()
+                self._singletons['voice_recognizer'] = VoiceRecognizer(audio_processor, command_recognizer)
+            except ImportError as e:
+                logger.error(f"Failed to import voice recognition modules: {e}")
+                return None
+        return self._singletons['voice_recognizer']
+
+    def get_tts_engine(self):
+        """Get TTS engine instance"""
+        if 'tts_engine' not in self._singletons:
+            try:
+                from voices import TTSEngine
+                self._singletons['tts_engine'] = TTSEngine()
+            except ImportError as e:
+                logger.error(f"Failed to import TTS engine: {e}")
+                return None
+        return self._singletons['tts_engine']
+
     def get_reminder_manager(self):
-        """Получение менеджера напоминаний"""
-        if self._reminder_manager is None:
-            from voices import ReminderManager
-            self._reminder_manager = ReminderManager()
-            logger.info("Reminder Manager инициализирован")
-        return self._reminder_manager
-    
-    def get_character_3d(self):
-        """Получение 3D персонажа"""
-        if self._character_3d is None:
-            from character_3d import Character3D
-            self._character_3d = Character3D()
-            logger.info("Character 3D инициализирован")
-        return self._character_3d
-    
+        """Get reminder manager instance"""
+        if 'reminder_manager' not in self._singletons:
+            try:
+                from voices import ReminderManager
+                self._singletons['reminder_manager'] = ReminderManager()
+            except ImportError as e:
+                logger.error(f"Failed to import reminder manager: {e}")
+                return None
+        return self._singletons['reminder_manager']
+
+    def get_ai_chat(self):
+        """Get AI chat instance"""
+        if 'ai_chat' not in self._singletons:
+            try:
+                from api_integrations import AIChat
+                self._singletons['ai_chat'] = AIChat()
+            except ImportError as e:
+                logger.error(f"Failed to import AI chat: {e}")
+                return None
+        return self._singletons['ai_chat']
+
+    def get_weather_api(self):
+        """Get weather API instance"""
+        if 'weather_api' not in self._singletons:
+            try:
+                from api_integrations import WeatherAPI
+                self._singletons['weather_api'] = WeatherAPI()
+            except ImportError as e:
+                logger.error(f"Failed to import weather API: {e}")
+                return None
+        return self._singletons['weather_api']
+
+    def get_character_renderer(self):
+        """Get character renderer instance"""
+        if 'character_renderer' not in self._singletons:
+            try:
+                from rendering import CharacterRenderer
+                self._singletons['character_renderer'] = CharacterRenderer()
+            except ImportError as e:
+                logger.error(f"Failed to import character renderer: {e}")
+                return None
+        return self._singletons['character_renderer']
+
     def cleanup(self):
-        """Очистка всех ресурсов"""
-        logger.info("Очистка ресурсов контейнера...")
-        
-        if self._tts_engine:
-            self._tts_engine.cleanup()
-        
-        if self._voice_recognizer:
-            self._voice_recognizer.cleanup()
-        
-        if self._reminder_manager:
-            self._reminder_manager.cleanup()
-        
-        if self._character_3d:
-            self._character_3d.cleanup()
-        
-        logger.info("Ресурсы очищены")
+        """Cleanup all services"""
+        for service in self._singletons.values():
+            if hasattr(service, 'cleanup'):
+                try:
+                    service.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up service {service}: {e}")
 
-
-# Глобальный экземпляр контейнера
-container = DependencyContainer()
-
-
-if __name__ == '__main__':
-    print("Dependency Injection контейнер")
-    print("Доступные сервисы:")
-    print("  - TTS Engine")
-    print("  - Voice Recognizer")
-    print("  - Weather Service")
-    print("  - AI Chat")
-    print("  - Reminder Manager")
-    print("  - Character 3D")
+        self._singletons.clear()
+        self._services.clear()
